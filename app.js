@@ -138,15 +138,21 @@ function arrangeNodes(start, end) {
     arrangeNode(nodes[0]);
 
     // 4) Adjust horizontally to use all available space
-    const minX = Math.min(...nodes.map(n => n.x));
-    const maxX = Math.max(...nodes.map(n => n.x));
+    const [minX, maxX] = getMinMax(nodes, 'x');
     const scaleX = (canvas.width - 2 * H_MARGIN) / (maxX - minX || 1);
     nodes.forEach(n => {
         n.x = H_MARGIN + (n.x - minX) * scaleX;
     });
 }
 
-
+function getMinMax(nodes, field) {
+    let min = Infinity, max = -Infinity;
+    for (let n of nodes) {
+        if (n[field] < min) min = n[field];
+        if (n[field] > max) max = n[field];
+    }
+    return [min, max];
+}
 
 
 // Graph drawing
