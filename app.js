@@ -37,11 +37,11 @@ function isPrime(num) {
 // Calculates the root according to the selected type
 function computeRoot(start, type) {
     if (type.toLowerCase() === "zero") {
-        return start;
+        return start > 2 ? start : 0;
     } else if (type.toLowerCase() === "odd") {
-        return start % 2 === 0 ? start + 1 : start;
+        return start % 2 === 0 ? (start > 1 ? start - 1 : 1) : start;
     } else if (type.toLowerCase() === "even") {
-        return start % 2 === 0 ? start : start + 1;
+        return start % 2 === 0 ? (start > 1 ? start : 2) : start - 1 > 1 ? start - 1 : 2;
     }
     return start;
 }
