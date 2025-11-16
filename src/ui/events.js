@@ -1,6 +1,6 @@
 import { state } from "../core/state.js";
 import { generateGraph } from "../core/graph-generator.js";
-import { drawGraph } from "../rendering/canvas-renderer.js";
+import { drawGraph, resetCanvasCache } from "../rendering/canvas-renderer.js";
 import { isMouseOnLine } from "../rendering/hit-test.js";
 import { zoomAt } from "../rendering/zoom.js";
 import { centerGraph } from "../rendering/center.js";
@@ -138,6 +138,8 @@ export function renderLoop() {
             const type = typeSelect.value;
 
             generateGraph(start, end, type);
+            resetCanvasCache();
+
             if (!state.manualTransform) centerGraph(canvas);
 
             state.graphDirty = false;

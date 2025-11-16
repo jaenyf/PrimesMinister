@@ -3,6 +3,11 @@ import { state } from "../core/state.js";
 let cachedCanvas = null;
 let cachedZoom = 1;
 
+export function resetCanvasCache() {
+    cachedCanvas = null;
+    cachedZoom = 0;     // force redraw
+}
+
 export function drawGraph(ctx, canvas) {
 
     if (!cachedCanvas || cachedZoom !== state.zoom) {
