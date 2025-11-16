@@ -10,18 +10,21 @@ const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const centerBtn = document.getElementById('centerBtn');
 
-let needsRedraw = true;
-let nodes = [];
-let edges = [];
-let zoom = 1;
-let panX = 0;
-let panY = 0;
-let isPanning = false;
-let panXStart = 0, panYStart = 0;
-let manualTransform = false;    // indicates whether the user has zoomed or panned
-let nodeRadius = 20;
-let nodesDisplayType = 'All'; // 'All', 'Primes', 'NonPrimes', 'None'
-let edgesDisplayType = 'All'; // 'All', 'Primes', 'NonPrimes', 'None'
+const state = {
+    nodes: [],
+    edges: [],
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+    panXStart : 0,
+    panYStart : 0,
+    isPanning: false,
+    manualTransform: false,
+    nodeRadius: 20,
+    nodesDisplayType: 'All',
+    edgesDisplayType: 'All',
+    needsRedraw : true
+};
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -58,8 +61,8 @@ function computeRoot(start, type) {
 
 // Generate the graph
 function generateGraph(start, end, type) {
-    nodes = [];
-    edges = [];
+    state.nodes = [];
+    state.edges = [];
     const validNumbers = [];
 
     const rootValue = computeRoot(start, type);
@@ -78,18 +81,18 @@ function generateGraph(start, end, type) {
     });
 
     const rootNode = createNode(rootValue);
-    nodes.push(rootNode);
+    state.nodes.push(rootNode);
     let currentLevel = [rootNode];
 
     validNumbers.slice(1).forEach((num) => {
         const node = createNode(num);
-        nodes.push(node);
+        state.nodes.push(node);
 
         let parent = currentLevel.find(n => n.children.length < 2);
         if (parent) {
             parent.children.push(node);
             node.parent = parent;
-            edges.push({ from: parent, to: node });
+            state.edges.push({ from: parent, to: node });
         }
 
         if (node.parent) {
@@ -103,7 +106,7 @@ function generateGraph(start, end, type) {
 
 // Node positioning (adaptation according to the start-end range)
 function arrangeNodes(start, end) {
-    if (nodes.length === 0) return;
+    if (state.nodes.length === 0) return;
 
     const V_MARGIN = 50; // vertical margin
     const H_MARGIN = 50; // horizontal margin
@@ -114,14 +117,14 @@ function arrangeNodes(start, end) {
         if (node.children.length === 0) return 1;
         return 1 + Math.max(...node.children.map(getDepth));
     }
-    const maxDepth = getDepth(nodes[0]);
+    const maxDepth = getDepth(state.nodes[0]);
 
     // 2) Vertical position
     function setY(node, level = 0) {
         node.y = V_MARGIN + level * ((canvas.height - 2 * V_MARGIN) / (maxDepth - 1));
         node.children.forEach(child => setY(child, level + 1));
     }
-    setY(nodes[0]);
+    setY(state.nodes[0]);
 
     // 3) Horizontal position (parent focused on their children)
     function arrangeNode(node, level = 0) {
@@ -135,12 +138,12 @@ function arrangeNodes(start, end) {
             node.x = (firstChild.x + lastChild.x) / 2; // center the parent
         }
     }
-    arrangeNode(nodes[0]);
+    arrangeNode(state.nodes[0]);
 
     // 4) Adjust horizontally to use all available space
-    const [minX, maxX] = getMinMax(nodes, 'x');
+    const [minX, maxX] = getMinMax(state.nodes, 'x');
     const scaleX = (canvas.width - 2 * H_MARGIN) / (maxX - minX || 1);
-    nodes.forEach(n => {
+    state.nodes.forEach(n => {
         n.x = H_MARGIN + (n.x - minX) * scaleX;
     });
 }
@@ -160,53 +163,53 @@ function drawGraph() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Drawing edges
-    edges.forEach(edge => {
+    state.edges.forEach(edge => {
 
         const bothPrime = edge.from.isPrime && edge.to.isPrime;
 
-        if (edgesDisplayType === 'Primes' && !bothPrime) return;
-        if (edgesDisplayType === 'NonPrimes' && bothPrime) return;
-        if (edgesDisplayType === 'None') return;
+        if (state.edgesDisplayType === 'Primes' && !bothPrime) return;
+        if (state.edgesDisplayType === 'NonPrimes' && bothPrime) return;
+        if (state.edgesDisplayType === 'None') return;
 
-        
+
         const edgeColor = bothPrime ? '#f80' : '#000';
 
         ctx.beginPath();
-        ctx.moveTo(edge.from.x * zoom + panX, edge.from.y * zoom + panY);
-        ctx.lineTo(edge.to.x * zoom + panX, edge.to.y * zoom + panY);
+        ctx.moveTo(edge.from.x * state.zoom + state.panX, edge.from.y * state.zoom + state.panY);
+        ctx.lineTo(edge.to.x * state.zoom + state.panX, edge.to.y * state.zoom + state.panY);
         ctx.strokeStyle = edgeColor;
         ctx.lineWidth = 2;
         ctx.stroke();
     });
 
     // Drawing nodes
-    nodes.forEach(node => {
+    state.nodes.forEach(node => {
 
-        if (nodesDisplayType === 'Primes' && !node.isPrime) return;
-        if (nodesDisplayType === 'NonPrimes' && node.isPrime) return;
-        if (nodesDisplayType === 'None') return;
+        if (state.nodesDisplayType === 'Primes' && !node.isPrime) return;
+        if (state.nodesDisplayType === 'NonPrimes' && node.isPrime) return;
+        if (state.nodesDisplayType === 'None') return;
 
         ctx.beginPath();
-        ctx.arc(node.x * zoom + panX, node.y * zoom + panY, nodeRadius, 0, Math.PI * 2);
+        ctx.arc(node.x * state.zoom + state.panX, node.y * state.zoom + state.panY, state.nodeRadius, 0, Math.PI * 2);
         ctx.fillStyle = node.isPrime ? '#f80' : '#08f';
         ctx.fill();
         ctx.closePath();
 
         ctx.fillStyle = 'white';
         ctx.font = '12px Arial';
-        ctx.fillText(node.value, node.x * zoom + panX - nodeRadius / 2, node.y * zoom + panY + 5);
+        ctx.fillText(node.value, node.x * state.zoom + state.panX - state.nodeRadius / 2, node.y * state.zoom + state.panY + 5);
     });
 }
 
 // Center graph without drawing
 function centerGraphWithoutDrawing() {
-    if (!nodes || nodes.length === 0) return;
+    if (!state.nodes || state.nodes.length === 0) return;
 
     //1) Global bounding box 
-    const minX = Math.min(...nodes.map(n => n.x));
-    const maxX = Math.max(...nodes.map(n => n.x));
-    const minY = Math.min(...nodes.map(n => n.y));
-    const maxY = Math.max(...nodes.map(n => n.y));
+    const minX = Math.min(...state.nodes.map(n => n.x));
+    const maxX = Math.max(...state.nodes.map(n => n.x));
+    const minY = Math.min(...state.nodes.map(n => n.y));
+    const maxY = Math.max(...state.nodes.map(n => n.y));
     const graphWidth = maxX - minX;
     const graphHeight = maxY - minY;
 
@@ -216,7 +219,7 @@ function centerGraphWithoutDrawing() {
     const newZoom = Math.min(zoomHeight, zoomWidth);
 
     // 3) Horizontal centering based on parents 
-    const parentNodes = nodes.filter(n => n.children && n.children.length > 0);
+    const parentNodes = state.nodes.filter(n => n.children && n.children.length > 0);
     const minParentX = Math.min(...parentNodes.map(n => n.x));
     const maxParentX = Math.max(...parentNodes.map(n => n.x));
     const parentCenterX = (minParentX + maxParentX) / 2;
@@ -227,7 +230,7 @@ function centerGraphWithoutDrawing() {
     const newPanY = (canvas.height - graphHeight * newZoom) / 2 - minY * newZoom;
 
     // 5) Horizontal adjustment if sheets protrude
-    const leafNodes = nodes.filter(n => !n.children || n.children.length === 0);
+    const leafNodes = state.nodes.filter(n => !n.children || n.children.length === 0);
     const minLeafX = Math.min(...leafNodes.map(n => n.x)) * newZoom + newPanX;
     const maxLeafX = Math.max(...leafNodes.map(n => n.x)) * newZoom + newPanX;
 
@@ -236,9 +239,9 @@ function centerGraphWithoutDrawing() {
     if (maxLeafX > canvas.width) newPanX -= (maxLeafX - canvas.width) + 10;
 
     // 7) Apply transformations
-    zoom = newZoom;
-    panX = newPanX;
-    panY = newPanY;
+    state.zoom = newZoom;
+    state.panX = newPanX;
+    state.panY = newPanY;
 }
 
 // Center the graph
@@ -253,16 +256,16 @@ function toggleCentering() {
 }
 
 function isCenteringLocked() {
-    return !manualTransform;
+    return !state.manualTransform;
 }
 
 function unlockCentering() {
-    manualTransform = true;
+    state.manualTransform = true;
     centerBtn.classList.remove('locked');
 }
 
 function lockCentering() {
-    manualTransform = false;
+    state.manualTransform = false;
     centerBtn.classList.add('locked');
 }
 
@@ -270,21 +273,22 @@ function lockCentering() {
 // Zooming in
 function zoomIn() {
     unlockCentering();
-    let zoomFactor = 1.1;
-    zoom *= zoomFactor;
+    const zoomFactor = 1.1;
+    state.zoom *= zoomFactor;
     scheduleRedraw();
 }
 
 // Zooming out
 function zoomOut() {
     unlockCentering();
-    let zoomFactor = 1.1;
-    zoom /= zoomFactor;
+    const zoomFactor = 1.1;
+    state.zoom /= zoomFactor;
     scheduleRedraw();
 }
 
 // Check if mouse is on a given line segment
 function isMouseOnLine(mx, my, x1, y1, x2, y2, zoomLevel = 1) {
+
     // Linear interpolation function
     function lerp(a, b, t) { return a + t * (b - a); }
 
@@ -310,11 +314,11 @@ function isMouseOnLine(mx, my, x1, y1, x2, y2, zoomLevel = 1) {
 
 // Zoom and center button events
 zoomInBtn.addEventListener('click', () => {
-    manualTransform = true;
+    state.manualTransform = true;
     zoomIn();
 });
 zoomOutBtn.addEventListener('click', () => {
-    manualTransform = true;
+    state.manualTransform = true;
     zoomOut();
 });
 //  Zoom with mouse wheel
@@ -327,17 +331,17 @@ canvas.addEventListener('wheel', (e) => {
     const mouseY = e.clientY;
 
     // Calculate the cursor position in relative coordinates
-    const cursorX = (mouseX - panX) / zoom;
-    const cursorY = (mouseY - panY) / zoom;
+    const cursorX = (mouseX - state.panX) / state.zoom;
+    const cursorY = (mouseY - state.panY) / state.zoom;
 
     const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1; // Facteur de zoom
 
     // Adjust the zoom
-    zoom *= zoomFactor;
+    state.zoom *= zoomFactor;
 
     // Adjust panX and panY according to the zoom change
-    panX = mouseX - cursorX * zoom;
-    panY = mouseY - cursorY * zoom;
+    state.panX = mouseX - cursorX * state.zoom;
+    state.panY = mouseY - cursorY * state.zoom;
 
     scheduleRedraw();
 });
@@ -346,24 +350,24 @@ centerBtn.addEventListener('click', toggleCentering);
 
 canvas.addEventListener('mousemove', (e) => {
 
-    const mouseX = (e.clientX - panX) / zoom;
-    const mouseY = (e.clientY - panY) / zoom;
+    const mouseX = (e.clientX - state.panX) / state.zoom;
+    const mouseY = (e.clientY - state.panY) / state.zoom;
 
-    if (isPanning) {
-        panX = e.clientX - panXStart * zoom;
-        panY = e.clientY - panYStart * zoom;
+    if (state.isPanning) {
+        state.panX = e.clientX - state.panXStart * state.zoom;
+        state.panY = e.clientY - state.panYStart * state.zoom;
         unlockCentering();
     }
 
     let lineHovered = null;
     // Check if the mouse is on one of the edges
-    for (let edge of edges) {
+    for (let edge of state.edges) {
         const x1 = edge.from.x;
         const y1 = edge.from.y;
         const x2 = edge.to.x;
         const y2 = edge.to.y;
 
-        if (isMouseOnLine(mouseX, mouseY, x1, y1, x2, y2, zoom)) {
+        if (isMouseOnLine(mouseX, mouseY, x1, y1, x2, y2, state.zoom)) {
             lineHovered = edge;
             break;
         }
@@ -389,15 +393,15 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 canvas.addEventListener('mouseup', () => {
-    isPanning = false;
+    state.isPanning = false;
 });
 canvas.addEventListener('mousedown', (e) => {
-    const mouseX = (e.clientX - panX) / zoom;
-    const mouseY = (e.clientY - panY) / zoom;
+    const mouseX = (e.clientX - state.panX) / state.zoom;
+    const mouseY = (e.clientY - state.panY) / state.zoom;
 
-    panXStart = mouseX;
-    panYStart = mouseY;
-    isPanning = true;
+    state.panXStart = mouseX;
+    state.panYStart = mouseY;
+    state.isPanning = true;
 });
 
 
@@ -406,12 +410,12 @@ endInput.addEventListener('input', () => scheduleRedraw());
 typeSelect.addEventListener('change', () => scheduleRedraw());
 
 nodesDisplayTypeSelect.addEventListener('change', (e) => {
-    nodesDisplayType = e.target.value;
+    state.nodesDisplayType = e.target.value;
     scheduleRedraw();
 });
 
 edgesDisplayTypeSelect.addEventListener('change', (e) => {
-    edgesDisplayType = e.target.value;
+    state.edgesDisplayType = e.target.value;
     scheduleRedraw();
 });
 
@@ -443,20 +447,20 @@ function refreshGraph() {
     const end = parseInt(endInput.value);
     const type = typeSelect.value;
     generateGraph(start, end, type);
-    if (!manualTransform) {
+    if (!state.manualTransform) {
         centerGraphWithoutDrawing();
     }
     drawGraph();
 }
 
 function scheduleRedraw() {
-    needsRedraw = true;
+    state.needsRedraw = true;
 }
 
 function renderLoop() {
-    if (needsRedraw) {
+    if (state.needsRedraw) {
         refreshGraph();
-        needsRedraw = false;
+        state.needsRedraw = false;
     }
     requestAnimationFrame(renderLoop);
 }
