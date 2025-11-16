@@ -4,6 +4,7 @@ const tooltip = document.getElementById('tooltip');
 const startInput = document.getElementById('start');
 const endInput = document.getElementById('end');
 const typeSelect = document.getElementById('type');
+const nodesDisplayTypeSelect = document.getElementById('nodesDisplayType');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const centerBtn = document.getElementById('centerBtn');
@@ -17,6 +18,7 @@ let isPanning = false;
 let panXStart = 0, panYStart = 0;
 let manualTransform = false;    // indicates whether the user has zoomed or panned
 let nodeRadius = 20;
+let nodesDisplayType = 'All'; // 'All', 'Primes', 'NonPrimes', 'None'
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -155,6 +157,11 @@ function drawGraph() {
 
     // Drawing nodes
     nodes.forEach(node => {
+
+        if (nodesDisplayType === 'Primes' && !node.isPrime) return;
+        if (nodesDisplayType === 'NonPrimes' && node.isPrime) return;
+        if (nodesDisplayType === 'None') return;
+
         ctx.beginPath();
         ctx.arc(node.x * zoom + panX, node.y * zoom + panY, nodeRadius, 0, Math.PI * 2);
         ctx.fillStyle = node.isPrime ? '#f80' : '#08f';
@@ -368,6 +375,12 @@ canvas.addEventListener('mousedown', (e) => {
 startInput.addEventListener('input', () => refreshGraph());
 endInput.addEventListener('input', () => refreshGraph());
 typeSelect.addEventListener('change', () => refreshGraph());
+
+nodesDisplayTypeSelect.addEventListener('change', (e) => {
+    nodesDisplayType = e.target.value;
+    refreshGraph();
+});
+
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
