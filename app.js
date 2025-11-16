@@ -23,7 +23,8 @@ const state = {
     nodeRadius: 20,
     nodesDisplayType: 'All',
     edgesDisplayType: 'All',
-    needsRedraw : true
+    needsRedraw : true, // indicates canvas needs to be redrawn
+    graphDirty: true, // indicates graph structure needs regeneration
 };
 
 canvas.width = window.innerWidth;
@@ -39,12 +40,15 @@ function _isPrime(num) {
 }
 
 const primeCache = new Map();
-// Check if a number is prime with caching
+function precomputePrimes(start, end) {
+    for (let i = start; i <= end; i++) {
+        if (!primeCache.has(i)) {
+            primeCache.set(i, _isPrime(i));
+        }
+    }
+}
 function checkIsPrime(n) {
-    if (primeCache.has(n)) return primeCache.get(n);
-    let result = _isPrime(n);
-    primeCache.set(n, result);
-    return result;
+    return primeCache.get(n) || false;
 }
 
 // Calculates the root according to the selected type
@@ -63,16 +67,12 @@ function computeRoot(start, type) {
 function generateGraph(start, end, type) {
     state.nodes = [];
     state.edges = [];
-    const validNumbers = [];
 
     const rootValue = computeRoot(start, type);
-
-    for (let i = rootValue; i <= end; i++) {
-        validNumbers.push(i);
-    }
+    precomputePrimes(rootValue, end); // precompute primes once
 
     const createNode = (value) => ({
-        value: value,
+        value,
         children: [],
         parent: null,
         x: 0,
@@ -80,72 +80,82 @@ function generateGraph(start, end, type) {
         isPrime: checkIsPrime(value),
     });
 
+    const validNumbers = [];
+    for (let i = rootValue; i <= end; i++) validNumbers.push(i);
+
     const rootNode = createNode(rootValue);
     state.nodes.push(rootNode);
     let currentLevel = [rootNode];
 
-    validNumbers.slice(1).forEach((num) => {
-        const node = createNode(num);
+    for (let i = 1; i < validNumbers.length; i++) {
+        const node = createNode(validNumbers[i]);
         state.nodes.push(node);
 
-        let parent = currentLevel.find(n => n.children.length < 2);
+        const parent = currentLevel.find(n => n.children.length < 2);
         if (parent) {
             parent.children.push(node);
             node.parent = parent;
             state.edges.push({ from: parent, to: node });
-        }
-
-        if (node.parent) {
             currentLevel.push(node);
         }
-    });
+    }
 
-    arrangeNodes(start, end);
+    arrangeNodes();
 }
 
 
 // Node positioning (adaptation according to the start-end range)
-function arrangeNodes(start, end) {
-    if (state.nodes.length === 0) return;
+// --- Flattened node arrangement for speed ---
+function arrangeNodes() {
+    if (!state.nodes.length) return;
 
-    const V_MARGIN = 50; // vertical margin
-    const H_MARGIN = 50; // horizontal margin
-    let xPos = H_MARGIN;
+    const V_MARGIN = 50, H_MARGIN = 50;
+    const levels = [];
 
-    // 1) Calculation of maximum depth
-    function getDepth(node) {
-        if (node.children.length === 0) return 1;
-        return 1 + Math.max(...node.children.map(getDepth));
+    // Step 1: BFS to assign levels
+    const root = state.nodes[0];
+    root.level = 0;
+    const queue = [root];
+
+    while (queue.length) {
+        const node = queue.shift();
+        if (!levels[node.level]) levels[node.level] = [];
+        levels[node.level].push(node);
+
+        node.children.forEach(child => {
+            child.level = node.level + 1;
+            queue.push(child);
+        });
     }
-    const maxDepth = getDepth(state.nodes[0]);
 
-    // 2) Vertical position
-    function setY(node, level = 0) {
-        node.y = V_MARGIN + level * ((canvas.height - 2 * V_MARGIN) / (maxDepth - 1));
-        node.children.forEach(child => setY(child, level + 1));
-    }
-    setY(state.nodes[0]);
+    // Step 2: Assign Y positions evenly per level
+    const maxDepth = levels.length;
+    levels.forEach((levelNodes, i) => {
+        const y = V_MARGIN + i * ((canvas.height - 2 * V_MARGIN) / (maxDepth - 1));
+        levelNodes.forEach(n => n.y = y);
+    });
 
-    // 3) Horizontal position (parent focused on their children)
-    function arrangeNode(node, level = 0) {
+    // Step 3: Assign X positions recursively to preserve tree structure
+    let nextX = H_MARGIN;
+    function assignX(node) {
         if (node.children.length === 0) {
-            node.x = xPos;
-            xPos += 60; // minimum horizontal spacing between sheets
+            node.x = nextX;
+            nextX += 60; // horizontal spacing
         } else {
-            node.children.forEach(child => arrangeNode(child, level + 1));
-            const firstChild = node.children[0];
-            const lastChild = node.children[node.children.length - 1];
-            node.x = (firstChild.x + lastChild.x) / 2; // center the parent
+            node.children.forEach(assignX);
+            // place parent in middle of its children
+            const first = node.children[0].x;
+            const last = node.children[node.children.length - 1].x;
+            node.x = (first + last) / 2;
         }
     }
-    arrangeNode(state.nodes[0]);
 
-    // 4) Adjust horizontally to use all available space
+    assignX(root);
+
+    // Step 4: Scale horizontally to fit canvas
     const [minX, maxX] = getMinMax(state.nodes, 'x');
     const scaleX = (canvas.width - 2 * H_MARGIN) / (maxX - minX || 1);
-    state.nodes.forEach(n => {
-        n.x = H_MARGIN + (n.x - minX) * scaleX;
-    });
+    state.nodes.forEach(n => n.x = H_MARGIN + (n.x - minX) * scaleX);
 }
 
 function getMinMax(nodes, field) {
@@ -159,46 +169,56 @@ function getMinMax(nodes, field) {
 
 
 // Graph drawing
+// --- Optimized drawGraph with offscreen caching ---
+let cachedCanvas = null;
+let cachedZoom = 1;
 function drawGraph() {
+    if (!cachedCanvas || cachedZoom !== state.zoom) {
+        cachedCanvas = document.createElement('canvas');
+        cachedCanvas.width = canvas.width;
+        cachedCanvas.height = canvas.height;
+        const cctx = cachedCanvas.getContext('2d');
+
+        cctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw edges
+        state.edges.forEach(edge => {
+            const bothPrime = edge.from.isPrime && edge.to.isPrime;
+            if (state.edgesDisplayType === 'Primes' && !bothPrime) return;
+            if (state.edgesDisplayType === 'NonPrimes' && bothPrime) return;
+            if (state.edgesDisplayType === 'None') return;
+
+            cctx.beginPath();
+            cctx.moveTo(edge.from.x, edge.from.y);
+            cctx.lineTo(edge.to.x, edge.to.y);
+            cctx.strokeStyle = bothPrime ? '#f80' : '#000';
+            cctx.lineWidth = 2;
+            cctx.stroke();
+        });
+
+        // Draw nodes
+        state.nodes.forEach(node => {
+            if (state.nodesDisplayType === 'Primes' && !node.isPrime) return;
+            if (state.nodesDisplayType === 'NonPrimes' && node.isPrime) return;
+            if (state.nodesDisplayType === 'None') return;
+
+            cctx.beginPath();
+            cctx.arc(node.x, node.y, state.nodeRadius, 0, Math.PI * 2);
+            cctx.fillStyle = node.isPrime ? '#f80' : '#08f';
+            cctx.fill();
+            cctx.closePath();
+
+            cctx.fillStyle = 'white';
+            cctx.font = '12px Arial';
+            cctx.fillText(node.value, node.x - state.nodeRadius / 2, node.y + 5);
+        });
+
+        cachedZoom = state.zoom;
+    }
+
+    // Draw cached canvas with zoom/pan
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Drawing edges
-    state.edges.forEach(edge => {
-
-        const bothPrime = edge.from.isPrime && edge.to.isPrime;
-
-        if (state.edgesDisplayType === 'Primes' && !bothPrime) return;
-        if (state.edgesDisplayType === 'NonPrimes' && bothPrime) return;
-        if (state.edgesDisplayType === 'None') return;
-
-
-        const edgeColor = bothPrime ? '#f80' : '#000';
-
-        ctx.beginPath();
-        ctx.moveTo(edge.from.x * state.zoom + state.panX, edge.from.y * state.zoom + state.panY);
-        ctx.lineTo(edge.to.x * state.zoom + state.panX, edge.to.y * state.zoom + state.panY);
-        ctx.strokeStyle = edgeColor;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-    });
-
-    // Drawing nodes
-    state.nodes.forEach(node => {
-
-        if (state.nodesDisplayType === 'Primes' && !node.isPrime) return;
-        if (state.nodesDisplayType === 'NonPrimes' && node.isPrime) return;
-        if (state.nodesDisplayType === 'None') return;
-
-        ctx.beginPath();
-        ctx.arc(node.x * state.zoom + state.panX, node.y * state.zoom + state.panY, state.nodeRadius, 0, Math.PI * 2);
-        ctx.fillStyle = node.isPrime ? '#f80' : '#08f';
-        ctx.fill();
-        ctx.closePath();
-
-        ctx.fillStyle = 'white';
-        ctx.font = '12px Arial';
-        ctx.fillText(node.value, node.x * state.zoom + state.panX - state.nodeRadius / 2, node.y * state.zoom + state.panY + 5);
-    });
+    ctx.drawImage(cachedCanvas, state.panX, state.panY, cachedCanvas.width * state.zoom, cachedCanvas.height * state.zoom);
 }
 
 // Center graph without drawing
@@ -246,10 +266,14 @@ function centerGraphWithoutDrawing() {
 
 // Center the graph
 function toggleCentering() {
-    if (isCenteringLocked()) {
-        unlockCentering();
+    // Center immediately
+    centerGraphWithoutDrawing();
+
+    // Toggle the manualTransform lock
+    if (state.manualTransform) {
+        lockCentering();   // now locked, centering applied automatically
     } else {
-        lockCentering();
+        unlockCentering(); // manual panning/zooming allowed
     }
 
     scheduleRedraw();
@@ -405,18 +429,18 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 
-startInput.addEventListener('input', () => scheduleRedraw());
-endInput.addEventListener('input', () => scheduleRedraw());
-typeSelect.addEventListener('change', () => scheduleRedraw());
+startInput.addEventListener('input', () => scheduleRedraw(true));
+endInput.addEventListener('input', () => scheduleRedraw(true));
+typeSelect.addEventListener('change', () => scheduleRedraw(true));
 
 nodesDisplayTypeSelect.addEventListener('change', (e) => {
     state.nodesDisplayType = e.target.value;
-    scheduleRedraw();
+    scheduleRedraw(true);
 });
 
 edgesDisplayTypeSelect.addEventListener('change', (e) => {
     state.edgesDisplayType = e.target.value;
-    scheduleRedraw();
+    scheduleRedraw(true);
 });
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -424,22 +448,22 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 document.getElementById('startMultiplierBtn').addEventListener('click', () => {
     let currentValue = parseInt(startInput.value);
     startInput.value = currentValue * 2;
-    scheduleRedraw();
+    scheduleRedraw(true);
 });
 document.getElementById('startDividerBtn').addEventListener('click', () => {
     let currentValue = parseInt(startInput.value);
     startInput.value = currentValue / 2;
-    scheduleRedraw();
+    scheduleRedraw(true);
 });
 document.getElementById('endMultiplierBtn').addEventListener('click', () => {
     let currentValue = parseInt(endInput.value);
     endInput.value = currentValue * 2;
-    scheduleRedraw();
+    scheduleRedraw(true);
 });
 document.getElementById('endDividerBtn').addEventListener('click', () => {
     let currentValue = parseInt(endInput.value);
     endInput.value = currentValue / 2;
-    scheduleRedraw();
+    scheduleRedraw(true);
 });
 
 function refreshGraph() {
@@ -453,13 +477,23 @@ function refreshGraph() {
     drawGraph();
 }
 
-function scheduleRedraw() {
+function scheduleRedraw(graphChanged = false) {
     state.needsRedraw = true;
+    if (graphChanged) state.graphDirty = true;
 }
 
 function renderLoop() {
-    if (state.needsRedraw) {
-        refreshGraph();
+     if (state.needsRedraw) {
+        if (state.graphDirty) {
+            const start = parseInt(startInput.value) || 0;
+            const end = parseInt(endInput.value) || 100;
+            const type = typeSelect.value;
+            generateGraph(start, end, type);
+            if (!state.manualTransform) centerGraphWithoutDrawing();
+            cachedZoom = 0; // force cache redraw
+            state.graphDirty = false;
+        }
+        drawGraph();
         state.needsRedraw = false;
     }
     requestAnimationFrame(renderLoop);
