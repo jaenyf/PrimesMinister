@@ -1,5 +1,7 @@
 # Primes Minister
 
+[![CI](https://github.com/jaenyf/PrimesMinister/actions/workflows/ci.yml/badge.svg?branch=vite-modules)](https://github.com/jaenyf/PrimesMinister/actions/workflows/ci.yml)
+
 ## Playground for prime and non-prime numbers
 
 This small project aims to graphically represent prime numbers within a set of numbers. The basic idea behind this project is to classify all numbers in a binary tree **graph** in order to visualize the appearance of prime numbers.
