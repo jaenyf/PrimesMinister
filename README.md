@@ -1,10 +1,23 @@
 # Primes Minister
 
+[![CI](https://github.com/jaenyf/PrimesMinister/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jaenyf/PrimesMinister/actions/workflows/ci.yml)
+
 ## Playground for prime and non-prime numbers
 
 This small project aims to graphically represent prime numbers within a set of numbers. The basic idea behind this project is to classify all numbers in a binary tree **graph** in order to visualize the appearance of prime numbers.
 
 A sober **map-style** UI is used to render the graph that you can **zoom** and **pan**, either with your mouse or with UI controls.
+
+### Usage :
+```console
+npm install
+npm run dev
+```
+
+### Test :
+```console
+npm run test
+```
 
 ### For example :
 
