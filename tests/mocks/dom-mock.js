@@ -1,24 +1,32 @@
 import { createMockCanvas } from "./canvas-mock.js";
 
 export function installMockDOM() {
-    // jsdom already provides most of DOM
-    globalThis.HTMLCanvasElement.prototype.getContext = function () {
-        return {}; // replaced in test-specific mocks
-    };
+     const graphCanvasMock = createMockCanvas();
 
-    // Minimal missing pieces
-    globalThis.requestAnimationFrame = (fn) => setTimeout(fn, 0);
-
-    const graphCanvasMock = createMockCanvas();
+    // Keep references to the real DOM helpers so tests can still set
+    // `document.body.innerHTML` or load `index.html` and rely on real
+    // elements when present. Fall back to lightweight mocks when an
+    // element is missing from the jsdom document.
+    const realGetElementById = globalThis.document.getElementById.bind(globalThis.document);
     globalThis.document.getElementById = (id) => {
+        const real = realGetElementById(id);
+        if (real) return real;
+
         if (id === "graphCanvas") {
             return graphCanvasMock;
         }
-        throw new Error(`No mock for element with id "${id}"`);
+
+        // If a test asks for other ids, return null rather than throwing
+        // so that tests that only care about a subset of elements are
+        // not brittle.
+        return null;
     }
+
+    const realCreateElement = globalThis.document.createElement.bind(globalThis.document);
     globalThis.document.createElement = (tagName) => {
         if (tagName.toLowerCase() === "canvas") {
             return createMockCanvas();
         }
+        return realCreateElement(tagName);
     }
 }
