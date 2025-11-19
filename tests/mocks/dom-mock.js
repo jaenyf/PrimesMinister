@@ -16,4 +16,9 @@ export function installMockDOM() {
         }
         throw new Error(`No mock for element with id "${id}"`);
     }
+    globalThis.document.createElement = (tagName) => {
+        if (tagName.toLowerCase() === "canvas") {
+            return createMockCanvas();
+        }
+    }
 }
