@@ -15,6 +15,18 @@ export function drawGraph(ctx, canvas, graphState) {
         const cctx = cachedCanvas.getContext("2d");
         cctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // Line of symmetry
+        if (graphState.showLineOfSymmetry && graphState.nodes.length > 0) {
+            cctx.beginPath();
+            cctx.moveTo(graphState.nodes[0].x, 0);
+            cctx.lineTo(graphState.nodes[0].x, canvas.height);
+            cctx.strokeStyle = "#888";
+            cctx.lineWidth = 1;
+            cctx.setLineDash([5, 5]);
+            cctx.stroke();
+            cctx.setLineDash([]);
+        }
+
         // Edges
         for (let e of graphState.edges) {
             const bothPrime = e.from.isPrime && e.to.isPrime;

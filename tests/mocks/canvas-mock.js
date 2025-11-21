@@ -34,6 +34,7 @@ export function createMockContext() {
         fillText: vi.fn(),
         clearRect: vi.fn(),
         closePath: vi.fn(),
+        setLineDash: vi.fn(),
 
         drawImage: vi.fn(),
 

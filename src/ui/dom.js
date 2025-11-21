@@ -22,7 +22,9 @@ export function queryUI(graphSate) {
         startMultiplierBtn: document.getElementById("startMultiplierBtn"),
         startDividerBtn: document.getElementById("startDividerBtn"),
         endMultiplierBtn: document.getElementById("endMultiplierBtn"),
-        endDividerBtn: document.getElementById("endDividerBtn")
+        endDividerBtn: document.getElementById("endDividerBtn"),
+
+        showSymmetryLineCheckbox: document.getElementById("showSymmetryLineCheckbox")
     };
 
     graphSate.graphStartValue = parseInt(ui.startInput.value, 10) || 0;

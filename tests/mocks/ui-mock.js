@@ -48,7 +48,8 @@ export function queryUIMock(graphState) {
         startMultiplierBtn: { onclick: null },
         startDividerBtn: { onclick: null },
         endMultiplierBtn: { onclick: null },
-        endDividerBtn: { onclick: null }
+        endDividerBtn: { onclick: null },
+        showSymmetryLineCheckbox: { checked: false, onchange: null }
     };
 
     //ui.canvas = graphCanvasMock;

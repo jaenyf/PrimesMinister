@@ -162,4 +162,9 @@ export function setupEventHandlers(ui, graphState) {
         canvas.height = window.innerHeight;
         scheduleRedraw(true);
     }
+
+    ui.showSymmetryLineCheckbox.onchange = (e) => {
+        graphState.showLineOfSymmetry = e.target.checked;
+        scheduleRedraw(true);
+    }
 }

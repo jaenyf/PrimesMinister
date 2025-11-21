@@ -14,6 +14,7 @@ export function createGraphState() {
         graphEndValue: 0,
         nodes: [],
         edges: [],
+        showLineOfSymmetry: false,
         zoom: 1,
         panX: 0,
         panY: 0,

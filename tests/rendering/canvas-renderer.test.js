@@ -103,3 +103,38 @@ describe("drawGraph", () => {
         expect(cachedContext.fill).toHaveBeenCalledTimes(2);
     });
 });
+
+describe("drawGraph", () => {
+    it("draw line of symmetry", () => {
+        // Arrange
+        const state = createGraphState();
+        const mockedUI = queryUIMock(state);
+        const canvas = mockedUI.canvas;
+        const context = canvas.getContext("2d");
+        state.showLineOfSymmetry = true;
+
+        const cachedCanvas = createMockCanvas();
+        globalThis.document.createElement = (tagName) => {
+            if (tagName.toLowerCase() === "canvas") {
+                return cachedCanvas;
+            }
+        }
+
+        state.nodes = [
+            { x: 50, y: 10, isPrime: false },
+            { x: 100, y: 100, isPrime: true }
+        ];
+        state.edges = [
+            { from: state.nodes[0], to: state.nodes[1] }
+        ];
+        resetCanvasCache();
+
+        // Act
+        drawGraph(context, canvas, state);
+        // Assert
+        const cachedContext = cachedCanvas.getContext("2d");
+        expect(cachedContext.moveTo).toHaveBeenCalledWith(50, 0);
+        expect(cachedContext.lineTo).toHaveBeenCalledWith(50, canvas.height);
+        expect(cachedContext.stroke).toHaveBeenCalled();
+    })
+});
