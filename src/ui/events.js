@@ -155,7 +155,7 @@ export function setupEventHandlers(ui, graphState) {
                 if (tooltip) {
                     tooltip.style.left = `${e.clientX + 10}px`;
                     tooltip.style.top = `${e.clientY + 10}px`;
-                    tooltip.innerText = `${hoveredEdge.from.value} → ${hoveredEdge.to.value}`;
+                    tooltip.innerHTML = `${hoveredEdge.from.value} &rarr; ${hoveredEdge.to.value}`;
                     tooltip.classList.toggle("primes", hoveredEdge.from.isPrime && hoveredEdge.to.isPrime);
                     tooltip.style.display = "block";
                 }
