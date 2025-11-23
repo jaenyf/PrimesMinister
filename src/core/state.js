@@ -18,6 +18,14 @@ export function createGraphState() {
         zoom: 1,
         panX: 0,
         panY: 0,
+        getVisibleArea: function (canvas) {
+            return {
+                left: (0 - this.panX) / this.zoom,
+                top: (0 - this.panY) / this.zoom,
+                right: (canvas.width - this.panX) / this.zoom,
+                bottom: (canvas.height - this.panY) / this.zoom
+            };
+        },
         panXStart: 0,
         panYStart: 0,
         isPanning: false,

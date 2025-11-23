@@ -1,14 +1,42 @@
+import { getNodeAt, getEdgeAt } from "../rendering/canvas-renderer.js";
 import { isMouseOnNode, isMouseOnEdge } from "../rendering/hit-test.js";
 import { zoomAt } from "../rendering/zoom.js";
 import { centerGraph } from "../rendering/center.js";
 import { GraphKind } from "../core/state.js";
 
 export function setupEventHandlers(app) {
-    // Resize
-    if (app.ui.canvas) {
-        app.ui.canvas.width = window.innerWidth;
-        app.ui.canvas.height = window.innerHeight;
+
+    function hideTooltip() {
+        app.ui.tooltip.style.display = "none";
     }
+
+    function showTooltipForNode(e, node) {
+        app.ui.tooltip.style.left = `${e.clientX + 10}px`;
+        app.ui.tooltip.style.top = `${e.clientY + 10}px`;
+        app.ui.tooltip.innerHTML = `${node.value} = ${node.primesFactors.map(p => `${p.value}<sup>${p.power}</sup>`).join(" × ")}`;
+        app.ui.tooltip.classList.toggle("primes", node.isPrime);
+        app.ui.tooltip.style.display = "block";
+    }
+
+    function showTooltipForEdge(e, edge) {
+        app.ui.tooltip.style.left = `${e.clientX + 10}px`;
+        app.ui.tooltip.style.top = `${e.clientY + 10}px`;
+        app.ui.tooltip.innerHTML = `${edge.from.value} &rarr; ${edge.to.value}`;
+        app.ui.tooltip.classList.toggle("primes", edge.from.isPrime && edge.to.isPrime);
+        app.ui.tooltip.style.display = "block";
+    }
+
+    function showDebugTooltip(e, mouseX, mouseY) {
+        app.ui.tooltip.style.left = `${e.clientX + 10}px`;
+        app.ui.tooltip.style.top = `${e.clientY + 10}px`;
+        app.ui.tooltip.innerHTML = `x:${Math.floor(mouseX)} y:${Math.floor(mouseY)}`;
+        app.ui.tooltip.classList.remove("primes");
+        app.ui.tooltip.style.display = "block";
+    }
+
+    // Resize
+    app.ui.canvas.width = window.innerWidth;
+    app.ui.canvas.height = window.innerHeight;
 
     // setupEventHandlers
     // Schedule redraw
@@ -107,8 +135,10 @@ export function setupEventHandlers(app) {
     app.ui.canvas.onmouseup = () => app.graphState.isPanning = false;
 
     app.ui.canvas.onmousemove = (e) => {
-        const mx = (e.clientX - app.graphState.panX) / app.graphState.zoom;
-        const my = (e.clientY - app.graphState.panY) / app.graphState.zoom;
+
+        const rect = app.ui.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
 
         if (app.graphState.isPanning) {
             app.graphState.panX = e.clientX - app.graphState.panXStart * app.graphState.zoom;
@@ -117,43 +147,19 @@ export function setupEventHandlers(app) {
             scheduleRedraw();
         }
 
-        let hoveredNode = null;
-        for (let node of app.graphState.nodes) {
-            if (isMouseOnNode(mx, my, node, app.graphState)) {
-                hoveredNode = node;
-            }
-        }
+        const hoveredNode = getNodeAt(mouseX, mouseY, app.ui.canvas, app.graphState);
+        const hoveredEdge = hoveredNode ? null : getEdgeAt(mouseX, mouseY, app.ui.canvas, app.graphState);
 
         if (hoveredNode) {
-            if (app.ui.tooltip) {
-                app.ui.tooltip.style.left = `${e.clientX + 10}px`;
-                app.ui.tooltip.style.top = `${e.clientY + 10}px`;
-                app.ui.tooltip.innerHTML = `${hoveredNode.value} = ${hoveredNode.primesFactors.map(p => `${p.value}<sup>${p.power}</sup>`).join(" × ")}`;
-                app.ui.tooltip.classList.toggle("primes", hoveredNode.isPrime);
-                app.ui.tooltip.style.display = "block";
-            }
+            showTooltipForNode(e, hoveredNode);
+        } else if (hoveredEdge) {
+            showTooltipForEdge(e, hoveredEdge);
         } else {
-            if (app.ui.tooltip) app.ui.tooltip.style.display = "none";
-        }
-
-        if (!hoveredNode) {
-            let hoveredEdge = null;
-            for (let edge of app.graphState.edges) {
-                if (isMouseOnEdge(mx, my, edge, app.graphState)) {
-                    hoveredEdge = edge;
-                    break;
-                }
+            if (app.debug) {
+                showDebugTooltip(e, mouseX, mouseY);
             }
-            if (hoveredEdge) {
-                if (app.ui.tooltip) {
-                    app.ui.tooltip.style.left = `${e.clientX + 10}px`;
-                    app.ui.tooltip.style.top = `${e.clientY + 10}px`;
-                    app.ui.tooltip.innerHTML = `${hoveredEdge.from.value} &rarr; ${hoveredEdge.to.value}`;
-                    app.ui.tooltip.classList.toggle("primes", hoveredEdge.from.isPrime && hoveredEdge.to.isPrime);
-                    app.ui.tooltip.style.display = "block";
-                }
-            } else {
-                if (app.ui.tooltip) tooltip.style.display = "none";
+            else {
+                hideTooltip();
             }
         }
     };

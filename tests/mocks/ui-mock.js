@@ -38,7 +38,7 @@ export function queryUIMock() {
     const uiObj = {
         canvas: graphCanvasMock,
         ctx: graphCanvasMock.getContext ? graphCanvasMock.getContext("2d") : null,
-        tooltip: null,
+        tooltip: { style: { display: "" } },
         startInput: { value: "", oninput: null },
         endInput: { value: "", oninput: null },
         typeSelect: { value: "Zero", onchange: null },

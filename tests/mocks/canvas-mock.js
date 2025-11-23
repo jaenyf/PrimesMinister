@@ -19,6 +19,9 @@ export function createMockCanvas() {
         const fns = listeners[event.type] || [];
         for (const fn of fns) fn(event);
     };
+    canvas.getBoundingClientRect = function () {
+        return { left: 0, top: 0, right: 0, bottom: 0 }
+    };
     return canvas;
 }
 

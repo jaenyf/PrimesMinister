@@ -3,6 +3,11 @@ import { drawGraph, resetCanvasCache } from "../../src/rendering/canvas-renderer
 import { createMockCanvas, createMockContext } from "../mocks/canvas-mock.js";
 import { queryUIMock } from "../mocks/ui-mock.js";
 
+beforeEach(() => {
+    // make requestAnimationFrame sync by runing the callback directly
+    global.requestAnimationFrame = (callback) => callback();
+});
+
 
 describe("drawGraph", () => {
     it("clear and draw image", () => {
