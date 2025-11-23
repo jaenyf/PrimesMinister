@@ -110,7 +110,7 @@ function _drawGraphToCanvas(context, canvas, graphState, visibleArea) {
 
     // Nodes
     for (let node of graphState.nodes) {
-        if (!isNodeInArea(node, visibleArea)) continue;
+        if (!isNodeInArea(node, visibleArea, graphState)) continue;
         if (graphState.nodesDisplayType === 'Primes' && !node.isPrime) continue;
         if (graphState.nodesDisplayType === 'NonPrimes' && node.isPrime) continue;
         if (graphState.nodesDisplayType === 'None') continue;
@@ -129,28 +129,58 @@ function _drawGraphToCanvas(context, canvas, graphState, visibleArea) {
     }
 }
 
-// Check if a node is within a given area
-function isEdgeInArea(edge, area) {
-    return (
-        edge.from.x >= area.left &&
-        edge.from.x <= area.right &&
-        edge.from.y >= area.top &&
-        edge.from.y <= area.bottom
-    ) || (
-            edge.to.x >= area.left &&
-            edge.to.x <= area.right &&
-            edge.to.y >= area.top &&
-            edge.to.y <= area.bottom
-        );
+// check whether a given edge is in a given area
+function isEdgeInArea(edge, viewport) {
+    const x1 = edge.from.x;
+    const y1 = edge.from.y;
+    const x2 = edge.to.x;
+    const y2 = edge.to.y;
+
+    // Check if either node is inside
+    if (
+        (x1 >= viewport.left && x1 <= viewport.right && y1 >= viewport.top && y1 <= viewport.bottom) ||
+        (x2 >= viewport.left && x2 <= viewport.right && y2 >= viewport.top && y2 <= viewport.bottom)
+    ) return true;
+
+    // Quick rejection: both nodes completely outside on the same side
+    if ((x1 < viewport.left && x2 < viewport.left) ||
+        (x1 > viewport.right && x2 > viewport.right) ||
+        (y1 < viewport.top && y2 < viewport.top) ||
+        (y1 > viewport.bottom && y2 > viewport.bottom)) return false;
+
+    // Otherwise, check intersection with each viewport edge
+    const rectEdges = [
+        { x1: viewport.left, y1: viewport.top, x2: viewport.right, y2: viewport.top },     // top
+        { x1: viewport.right, y1: viewport.top, x2: viewport.right, y2: viewport.bottom }, // right
+        { x1: viewport.right, y1: viewport.bottom, x2: viewport.left, y2: viewport.bottom }, // bottom
+        { x1: viewport.left, y1: viewport.bottom, x2: viewport.left, y2: viewport.top }   // left
+    ];
+
+    for (const re of rectEdges) {
+        if (segmentsIntersect(x1, y1, x2, y2, re.x1, re.y1, re.x2, re.y2)) return true;
+    }
+
+    return false;
 }
 
-// Check if a node is within a given area
-function isNodeInArea(node, area) {
+// Utility: check if two segments intersect
+function segmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+    function ccw(ax, ay, bx, by, cx, cy) {
+        return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax);
+    }
+    return (ccw(x1, y1, x3, y3, x4, y4) !== ccw(x2, y2, x3, y3, x4, y4)) &&
+        (ccw(x1, y1, x2, y2, x3, y3) !== ccw(x1, y1, x2, y2, x4, y4));
+}
+
+// check whether a given node is in a given area
+function isNodeInArea(node, viewport, graphState) {
+    const pad = graphState.nodeRadius;
+
     return (
-        node.x >= area.left &&
-        node.x <= area.right &&
-        node.y >= area.top &&
-        node.y <= area.bottom
+        node.x >= viewport.left - pad &&
+        node.x <= viewport.right + pad &&
+        node.y >= viewport.top - pad &&
+        node.y <= viewport.bottom + pad
     );
 }
 
@@ -159,7 +189,7 @@ function isNodeInArea(node, area) {
 export function getNodeAt(mouseX, mouseY, canvas, graphState) {
     const viewport = graphState.getVisibleArea(canvas);
     for (let node of graphState.nodes) {
-        if (!isNodeInArea(node, viewport)) continue;
+        if (!isNodeInArea(node, viewport, graphState)) continue;
 
         // Convert world coordinates to screen coordinates
         const nodeScreenX = (node.x - viewport.left) * graphState.zoom;
