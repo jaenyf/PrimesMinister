@@ -52,7 +52,11 @@ function _swapBuffer(canvas, ctx, graphState) {
     ctx.drawImage(_cachedCanvas, 0, 0);
 }
 
+let _currentFrameId = 0;
+
 function _redrawGraphAsync(ctx, canvas, graphState, viewport) {
+    const frameId = ++_currentFrameId;
+
     // Create a new offscreen canvas to hold the redrawn graph
     const cachedCanvas = _initializeCachedCanvas();
     cachedCanvas.width = canvas.width;
@@ -60,6 +64,9 @@ function _redrawGraphAsync(ctx, canvas, graphState, viewport) {
 
     // Redraw the graph at the new zoom level asynchronously
     requestAnimationFrame(() => {
+        // Ignore old frames
+        if (frameId !== _currentFrameId) return;
+
         _drawGraphToCanvas(cachedCanvas.getContext("2d"), cachedCanvas, graphState, viewport);
 
         // Once the graph is ready, update the cache
